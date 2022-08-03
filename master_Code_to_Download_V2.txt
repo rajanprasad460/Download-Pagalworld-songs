@@ -1,0 +1,66 @@
+	$save_dir_master = "E:\PagalWorld Songs"
+		
+	$m_loop_con = 1
+	$m_page = 3;	
+	$m_year = 2007;
+	#$url = "https://pagalfree.com/category/Bollywood/0/2021.html"
+	
+	$save_dir = $save_dir_master+'\'+$m_year+'Songs'
+	# Keep continuing till there is movies in that year list
+	while($m_loop_con = 1){
+		$url = "https://pagalfree.com/category/Bollywood/"+$m_page+"/"+$m_year+".html"
+		$response = Invoke-WebRequest -Uri $url
+
+		#$response.Links | Select href
+		#$response.Links | Select innerHTML
+		#$response.Links | Select innerText
+
+		# Reading the total movies listed in the page
+		$movie_list = ($response.Links)
+		if (($movie_list.innerText -like "*Next*")){
+
+			#$movie_count = 1;
+			for ($num = 0 ; $num -le $movie_list.Count; $num++){
+			#for ($num = 0 ; $num -le 9; $num++){
+				if ($movie_list[$num].innerText.ToString() -like "*Mp3 Song*")
+				{
+					# Reading the movie name here
+					#$movie_name =  $movie_list[$num].innerText.Split('M')[0] -replace '\s',''
+					$movie_name =  $movie_list[$num].innerText.Split([Environment]::NewLine)[0]-replace '\s',''
+					New-Item -ItemType directory $save_dir'\'$movie_name		
+					# Reading the movie link here
+					$movie_url =  ($response.Links | Select href)[$num].href
+					# Going into movie to check the songs
+					$response_m = Invoke-WebRequest -Uri $movie_url
+						# Extracting the song names
+						$song_list = ($response_m.Links)
+							#Check which contains the song
+							for ($num_s = 0 ; $num_s -le $song_list.Count; $num_s++){
+								if ($song_list[$num_s].innerText.ToString() -like "*Mp3 Song*"){
+								$song_url = ($response_m.Links | Select href)[$num_s].href
+								$response_s = Invoke-WebRequest -Uri $song_url
+								# Find the song with 320 audio quality
+								$song_qu_list = ($response_s.Links)
+								# Download the song here
+								for ($num_q = 0 ; $num_q -le $song_qu_list.Count; $num_q++){
+									if ($song_qu_list[$num_q].innerText.ToString() -like "*320 Kbps*"){
+									
+										$song_down_url = ($response_s.Links | Select href)[$num_q].href
+										$download = Invoke-WebRequest -Uri $song_down_url
+										$content = [System.Net.Mime.ContentDisposition]::new($download.Headers["Content-Disposition"])
+										$fileName = $content.FileName
+										$file = [System.IO.FileStream]::new($save_dir+'\'+$movie_name+'\'+$fileName, [System.IO.FileMode]::Create)
+										$file.Write($download.Content, 0, $download.RawContentLength)
+										$file.Close()
+										}
+									}
+							
+								}
+							}
+				}
+			}
+		$m_page++
+		}else{
+		$m_loop_con = 0
+		}
+	}
